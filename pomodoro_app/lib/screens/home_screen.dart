@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:pomodoro_app/screens/add_habit_screen.dart';
-import 'package:pomodoro_app/services/notification_service.dart';
 import '../db/database_helper.dart';
 import '../models/habit.dart';
-import '../widgets/habit_heatmap.dart';
+import '../screens/add_habit_screen.dart';
+import '../widgets/week_calendar.dart';
+import '../widgets/habit_horizontal_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,16 +12,11 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-
-
 class _HomeScreenState extends State<HomeScreen> {
   final db = DatabaseHelper.instance;
   List<Habit> habits = [];
 
-  String todayKey() {
-  return DateTime.now().toIso8601String().split('T')[0];
-}
-
+  String todayKey() => DateTime.now().toIso8601String().split('T')[0];
 
   @override
   void initState() {
@@ -47,18 +42,14 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => habits = loaded);
   }
 
-  Future<void> toggleHabit(Habit habit) async {
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    await db.toggleLog(habit.id, today);
-    await loadHabits();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Habit Tracker')),
+      appBar: AppBar(
+        title: const Text('Today'),
+        elevation: 0,
+      ),
       floatingActionButton: FloatingActionButton(
-        child: const Icon(Icons.add),
         onPressed: () async {
           final result = await Navigator.push(
             context,
@@ -66,60 +57,43 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (_) => const AddHabitScreen(),
             ),
           );
-
-          if (result == true) {
-            loadHabits();
-          }
+          if (result == true) loadHabits();
         },
+        child: const Icon(Icons.add),
       ),
-      body: ListView.builder(
-        itemCount: habits.length,
-        itemBuilder: (context, index) {
-          final habit = habits[index];
-          return Card(
-            margin: const EdgeInsets.all(8),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${habit.emoji} ${habit.title}',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: habit.colorValue,
+      body: Column(
+        children: [
+          const SizedBox(height: 12),
+
+          /// 🔝 TAKVİM
+          const WeekCalendar(),
+
+          const SizedBox(height: 12),
+
+          /// 📋 HABIT LIST
+          Expanded(
+            child: habits.isEmpty
+                ? const Center(
+                    child: Text(
+                      'Henüz alışkanlık eklenmedi',
+                      style: TextStyle(color: Colors.grey),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  HabitHeatmap(
-                    logs: habit.logs,
-                    weeks: 8, // 🔥 GitHub gibi
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('🔥 Streak: ${habit.streak}'),
-                      Checkbox(
-                        value: habit.doneToday,
-                        onChanged: (_) async {
+                  )
+                : ListView.builder(
+                    itemCount: habits.length,
+                    itemBuilder: (context, index) {
+                      final habit = habits[index];
+                      return HabitHorizontalCard(
+                        habit: habit,
+                        onToggle: () async {
                           await db.toggleLog(habit.id, todayKey());
-                          setState(() {}); // 🔥 UI'ı ZORLA YENİLE
+                          loadHabits();
                         },
-                      )
-                    ],
+                      );
+                    },
                   ),
-                  if (habit.streakBroken)
-                    const Text(
-                      '⚠️ Streak kırıldı',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                    ),
-                ],
-              ),
-            ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
